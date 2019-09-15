@@ -1,66 +1,163 @@
-<img src="data/logo.jpg" width=25% align="right" />
+**Status:** Active (under active development, breaking changes may occur)
+
+<img src="data/logo.jpg" width=25% align="right" /> [![Build status](https://travis-ci.org/openai/baselines.svg?branch=master)](https://travis-ci.org/openai/baselines)
 
 # Baselines
 
-We're releasing OpenAI Baselines, a set of high-quality implementations of reinforcement learning algorithms. To start, we're making available an open source version of Deep Q-Learning and three of its variants. 
+OpenAI Baselines is a set of high-quality implementations of reinforcement learning algorithms.
 
 These algorithms will make it easier for the research community to replicate, refine, and identify new ideas, and will create good baselines to build research on top of. Our DQN implementation and its variants are roughly on par with the scores in published papers. We expect they will be used as a base around which new ideas can be added, and as a tool for comparing a new approach against existing ones. 
 
-You can install it by typing:
-
+## Prerequisites 
+Baselines requires python3 (>=3.5) with the development headers. You'll also need system packages CMake, OpenMPI and zlib. Those can be installed as follows
+### Ubuntu 
+    
 ```bash
-pip install baselines
+sudo apt-get update && sudo apt-get install cmake libopenmpi-dev python3-dev zlib1g-dev
+```
+    
+### Mac OS X
+Installation of system packages on Mac requires [Homebrew](https://brew.sh). With Homebrew installed, run the following:
+```bash
+brew install cmake openmpi
+```
+    
+## Virtual environment
+From the general python package sanity perspective, it is a good idea to use virtual environments (virtualenvs) to make sure packages from different projects do not interfere with each other. You can install virtualenv (which is itself a pip package) via
+```bash
+pip install virtualenv
+```
+Virtualenvs are essentially folders that have copies of python executable and all python packages.
+To create a virtualenv called venv with python3, one runs 
+```bash
+virtualenv /path/to/venv --python=python3
+```
+To activate a virtualenv: 
+```
+. /path/to/venv/bin/activate
+```
+More thorough tutorial on virtualenvs and options can be found [here](https://virtualenv.pypa.io/en/stable/) 
+
+
+## Tensorflow versions
+The master branch supports Tensorflow from version 1.4 to 1.14. For Tensorflow 2.0 support, please use tf-2 branch.
+
+## Installation
+- Clone the repo and cd into it:
+    ```bash
+    git clone https://github.com/openai/baselines.git
+    cd baselines
+    ```
+- If you don't have TensorFlow installed already, install your favourite flavor of TensorFlow. In most cases, 
+    ```bash 
+    pip install tensorflow-gpu # if you have a CUDA-compatible gpu and proper drivers
+    ```
+    or 
+    ```bash
+    pip install tensorflow
+    ```
+    should be sufficient. Refer to [TensorFlow installation guide](https://www.tensorflow.org/install/)
+    for more details. 
+
+- Install baselines package
+    ```bash
+    pip install -e .
+    ```
+
+### MuJoCo
+Some of the baselines examples use [MuJoCo](http://www.mujoco.org) (multi-joint dynamics in contact) physics simulator, which is proprietary and requires binaries and a license (temporary 30-day license can be obtained from [www.mujoco.org](http://www.mujoco.org)). Instructions on setting up MuJoCo can be found [here](https://github.com/openai/mujoco-py)
+
+## Testing the installation
+All unit tests in baselines can be run using pytest runner:
+```
+pip install pytest
+pytest
 ```
 
-
-## If you are curious.
-
-##### Train a Cartpole agent and watch it play once it converges!
-
-Here's a list of commands to run to quickly get a working example:
-
-<img src="data/cartpole.gif" width="25%" />
-
-
+## Training models
+Most of the algorithms in baselines repo are used as follows:
 ```bash
-# Train model and save the results to cartpole_model.pkl
-python -m baselines.deepq.experiments.train_cartpole
-# Load the model saved in cartpole_model.pkl and visualize the learned policy
-python -m baselines.deepq.experiments.enjoy_cartpole
+python -m baselines.run --alg=<name of the algorithm> --env=<environment_id> [additional arguments]
+```
+### Example 1. PPO with MuJoCo Humanoid
+For instance, to train a fully-connected network controlling MuJoCo humanoid using PPO2 for 20M timesteps
+```bash
+python -m baselines.run --alg=ppo2 --env=Humanoid-v2 --network=mlp --num_timesteps=2e7
+```
+Note that for mujoco environments fully-connected network is default, so we can omit `--network=mlp`
+The hyperparameters for both network and the learning algorithm can be controlled via the command line, for instance:
+```bash
+python -m baselines.run --alg=ppo2 --env=Humanoid-v2 --network=mlp --num_timesteps=2e7 --ent_coef=0.1 --num_hidden=32 --num_layers=3 --value_network=copy
+```
+will set entropy coefficient to 0.1, and construct fully connected network with 3 layers with 32 hidden units in each, and create a separate network for value function estimation (so that its parameters are not shared with the policy network, but the structure is the same)
+
+See docstrings in [common/models.py](baselines/common/models.py) for description of network parameters for each type of model, and 
+docstring for [baselines/ppo2/ppo2.py/learn()](baselines/ppo2/ppo2.py#L152) for the description of the ppo2 hyperparameters. 
+
+### Example 2. DQN on Atari 
+DQN with Atari is at this point a classics of benchmarks. To run the baselines implementation of DQN on Atari Pong:
+```
+python -m baselines.run --alg=deepq --env=PongNoFrameskip-v4 --num_timesteps=1e6
 ```
 
+## Saving, loading and visualizing models
 
-Be sure to check out the source code of [both](baselines/deepq/experiments/train_cartpole.py) [files](baselines/deepq/experiments/enjoy_cartpole.py)!
-
-## If you wish to apply DQN to solve a problem.
-
-Check out our simple agented trained with one stop shop `deepq.learn` function. 
-
-- `baselines/deepq/experiments/train_cartpole.py` - train a Cartpole agent.
-- `baselines/deepq/experiments/train_pong.py` - train a Pong agent using convolutional neural networks.
-
-In particular notice that once `deepq.learn` finishes training it returns `act` function which can be used to select actions in the environment. Once trained you can easily save it and load at later time. For both of the files listed above there are complimentary files `enjoy_cartpole.py` and `enjoy_pong.py` respectively, that load and visualize the learned policy.
-
-## If you wish to experiment with the algorithm
-
-##### Check out the examples
-
-
-- `baselines/deepq/experiments/custom_cartpole.py` - Cartpole training with more fine grained control over the internals of DQN algorithm.
-- `baselines/deepq/experiments/atari/train.py` - more robust setup for training at scale.
-
-
-##### Download a pretrained Atari agent
-
-For some research projects it is sometimes useful to have an already trained agent handy. There's a variety of models to choose from. You can list them all by running:
-
+### Saving and loading the model
+The algorithms serialization API is not properly unified yet; however, there is a simple method to save / restore trained models. 
+`--save_path` and `--load_path` command-line option loads the tensorflow state from a given path before training, and saves it after the training, respectively. 
+Let's imagine you'd like to train ppo2 on Atari Pong,  save the model and then later visualize what has it learnt.
 ```bash
-python -m baselines.deepq.experiments.atari.download_model
+python -m baselines.run --alg=ppo2 --env=PongNoFrameskip-v4 --num_timesteps=2e7 --save_path=~/models/pong_20M_ppo2
+```
+This should get to the mean reward per episode about 20. To load and visualize the model, we'll do the following - load the model, train it for 0 steps, and then visualize: 
+```bash
+python -m baselines.run --alg=ppo2 --env=PongNoFrameskip-v4 --num_timesteps=0 --load_path=~/models/pong_20M_ppo2 --play
 ```
 
-Once you pick a model, you can download it and visualize the learned policy. Be sure to pass `--dueling` flag to visualization script when using dueling models.
+*NOTE:* Mujoco environments require normalization to work properly, so we wrap them with VecNormalize wrapper. Currently, to ensure the models are saved with normalization (so that trained models can be restored and run without further training) the normalization coefficients are saved as tensorflow variables. This can decrease the performance somewhat, so if you require high-throughput steps with Mujoco and do not need saving/restoring the models, it may make sense to use numpy normalization instead. To do that, set 'use_tf=False` in [baselines/run.py](baselines/run.py#L116). 
 
+### Logging and vizualizing learning curves and other training metrics
+By default, all summary data, including progress, standard output, is saved to a unique directory in a temp folder, specified by a call to Python's [tempfile.gettempdir()](https://docs.python.org/3/library/tempfile.html#tempfile.gettempdir).
+The directory can be changed with the `--log_path` command-line option.
 ```bash
-python -m baselines.deepq.experiments.atari.download_model --blob model-atari-prior-duel-breakout-1 --model-dir /tmp/models
-python -m baselines.deepq.experiments.atari.enjoy --model-dir /tmp/models/model-atari-prior-duel-breakout-1 --env Breakout --dueling
+python -m baselines.run --alg=ppo2 --env=PongNoFrameskip-v4 --num_timesteps=2e7 --save_path=~/models/pong_20M_ppo2 --log_path=~/logs/Pong/
 ```
+*NOTE:* Please be aware that the logger will overwrite files of the same name in an existing directory, thus it's recommended that folder names be given a unique timestamp to prevent overwritten logs.
+
+Another way the temp directory can be changed is through the use of the `$OPENAI_LOGDIR` environment variable.
+
+For examples on how to load and display the training data, see [here](docs/viz/viz.ipynb).
+
+## Subpackages
+
+- [A2C](baselines/a2c)
+- [ACER](baselines/acer)
+- [ACKTR](baselines/acktr)
+- [DDPG](baselines/ddpg)
+- [DQN](baselines/deepq)
+- [GAIL](baselines/gail)
+- [HER](baselines/her)
+- [PPO1](baselines/ppo1) (obsolete version, left here temporarily)
+- [PPO2](baselines/ppo2) 
+- [TRPO](baselines/trpo_mpi)
+
+
+
+## Benchmarks
+Results of benchmarks on Mujoco (1M timesteps) and Atari (10M timesteps) are available 
+[here for Mujoco](https://htmlpreview.github.com/?https://github.com/openai/baselines/blob/master/benchmarks_mujoco1M.htm) 
+and
+[here for Atari](https://htmlpreview.github.com/?https://github.com/openai/baselines/blob/master/benchmarks_atari10M.htm) 
+respectively. Note that these results may be not on the latest version of the code, particular commit hash with which results were obtained is specified on the benchmarks page. 
+
+To cite this repository in publications:
+
+    @misc{baselines,
+      author = {Dhariwal, Prafulla and Hesse, Christopher and Klimov, Oleg and Nichol, Alex and Plappert, Matthias and Radford, Alec and Schulman, John and Sidor, Szymon and Wu, Yuhuai and Zhokhov, Peter},
+      title = {OpenAI Baselines},
+      year = {2017},
+      publisher = {GitHub},
+      journal = {GitHub repository},
+      howpublished = {\url{https://github.com/openai/baselines}},
+    }
+
